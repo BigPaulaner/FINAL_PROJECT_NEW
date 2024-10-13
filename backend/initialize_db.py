@@ -1,71 +1,64 @@
 import os
-import logging
-import database
 import sqlite3
+import logging
 
-# Configure logging
+# Set up logging
+logging.basicConfig(
+    filename='application.log',
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
 
-def create_database_tables():
+def connect_to_db():
+    """Establishes a connection to the SQLite database 'database.db'."""
     try:
-        # This function creates the necessary tables
-        database.create_user_table()
-        logging.info("Database tables were successfully created.")
-    except Exception as e:
-        logging.error(f"An error occurred while creating database tables: {e}")
-#create_database_tables()
-# Run the function to create tables
-#create_database_tables()
+        conn = sqlite3.connect('database.db')
+        logging.info("Database connection established successfully.")
+        return conn
+    except sqlite3.Error as e:
+        logging.error("Database connection failed: %s", e)
+        raise e
+
+def create_user_table():
+    """Creates the 'users' table in the database if it does not already exist."""
+    conn = connect_to_db()
+    cur = conn.cursor()
+    try:
+        cur.execute('''
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT NOT NULL UNIQUE,
+                password TEXT NOT NULL,
+                last_read_date DATE,
+                current_streak INTEGER DEFAULT 0,
+                longest_streak INTEGER DEFAULT 0
+            )
+        ''')
+        logging.info("Table 'users' created or already exists.")
+        conn.commit()
+    except sqlite3.Error as e:
+        logging.error("Error creating 'users' table: %s", e)
+        raise e
+    finally:
+        conn.close()
 
 def print_all_users():
-    """
-    Label: Print All Users Function
-
-    Short Description:
-    Connects to the SQLite database and prints all records from the 'users' table.
-
-    Parameters:
-    - None.
-
-    Return:
-    - None: Outputs user data to the console.
-    """
-    connection = sqlite3.connect('database.db')  # Replace with your database name
-    cursor = connection.cursor()
-
-    cursor.execute("SELECT * FROM users")
-    users = cursor.fetchall()
-    
-    for user in users:
-        print(user)
-
-    connection.close()
-
-print_all_users()
-def delete_database():
-    """
-    Deletes the SQLite database file 'database.db'.
-
-    Returns:
-        None
-
-    Tests:
-        1. **Database Deletion Success**:
-            - Input: Call `delete_database()` when 'database.db' exists.
-            - Expected Outcome: The database file is deleted and an info log is created.
-        
-        2. **Database File Not Found**:
-            - Input: Call `delete_database()` when 'database.db' does not exist.
-            - Expected Outcome: A warning log is created, indicating that the file was not found.
-    """
-    db_path = 'database.db'
-
+    """Prints all records from the 'users' table."""
+    conn = connect_to_db()
+    cur = conn.cursor()
     try:
-        if os.path.exists(db_path):
-            os.remove(db_path)
-            logging.info("Database file '%s' deleted successfully.", db_path)
+        cur.execute("SELECT * FROM users")
+        users = cur.fetchall()
+        if users:
+            for user in users:
+                print(user)
         else:
-            logging.warning("Database file '%s' not found for deletion.", db_path)
-    except OSError as e:
-        logging.error("Error deleting database file '%s': %s", db_path, e)
-        raise e
-#delete_database()
+            print("No users found in the database.")
+    except sqlite3.Error as e:
+        logging.error("Error accessing 'users' table: %s", e)
+    finally:
+        conn.close()
+
+# Execute the functions
+create_user_table()  # Ensure the table exists
+print_all_users()    # Print all users
